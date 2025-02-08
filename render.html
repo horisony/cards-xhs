@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>渲染结果</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            background: #f0f0f0;
+            width: calc(100% - 40px); /* 确保body宽度正确 */
+            min-height: 100vh;
+        }
+        .container {
+            width: 300px;
+            height: 400px;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 20px;
+            overflow: scroll;
+            box-sizing: border-box;
+            position: relative;
+            flex: 0 0 auto;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+        }
+        .content-wrapper {
+            position: relative;
+            width: 100%;
+            max-height: 360px;
+            overflow: scroll;
+        }
+        /* 添加基础样式确保内容正确显示 */
+        .content-wrapper > * {
+            margin-top: 0;
+            margin-bottom: 1em;
+        }
+        /* 所有级别的标题左对齐 */
+        .content-wrapper h1,
+        .content-wrapper h2,
+        .content-wrapper h3,
+        .content-wrapper h4,
+        .content-wrapper h5,
+        .content-wrapper h6 {
+            margin-left: 0;
+            padding-left: 0;
+        }
+        /* 所有级别的列表使用统一的缩进 */
+        .content-wrapper ul,
+        .content-wrapper ol {
+            margin-left: 0;
+            padding-left: 20px;
+        }
+        /* 嵌套列表的缩进 */
+        .content-wrapper ul ul,
+        .content-wrapper ol ol,
+        .content-wrapper ul ol,
+        .content-wrapper ol ul {
+            padding-left: 20px;
+        }
+    </style>
+</head>
+<body>
+    <script>
+        // 获取并解析Markdown内容
+        const rawContent = localStorage.getItem('markdownContent') || '';
+        const htmlContent = marked.parse(rawContent);
+        
+        // 创建临时div用于内容分割
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = htmlContent;
+        document.body.appendChild(tempDiv);
+        tempDiv.style.visibility = 'hidden';
+        tempDiv.style.position = 'absolute';
+
+        // 创建分页容器
+        let currentContainer = createContainer();
+        let currentHeight = 0;
+
+        // 递归处理子节点
+        function processNodes(nodes) {
+            const measureContainer = document.createElement('div');
+            measureContainer.style.width = '260px';
+            measureContainer.style.position = 'absolute';
+            measureContainer.style.visibility = 'hidden';
+            document.body.appendChild(measureContainer);
+            
+            Array.from(nodes).forEach(node => {
+                if (node.nodeType === Node.ELEMENT_NODE) {
+                    if (node.tagName === 'P') {
+                        // 创建新段落元素
+                        let paragraph = document.createElement('p');
+                        // 获取段落中的所有文本
+                        const text = node.textContent;
+                        // 按字符分割
+                        const chars = text.split('');
+                        let currentLine = '';
+                        
+                        // 逐字处理
+                        chars.forEach((char, index) => {
+                            currentLine += char;
+                            
+                            // 创建临时span测量当前行
+                            const tempSpan = document.createElement('span');
+                            tempSpan.textContent = currentLine;
+                            measureContainer.innerHTML = '';
+                            measureContainer.appendChild(tempSpan);
+                            
+                            // 如果达到行宽或是最后一个字符
+                            if (measureContainer.offsetWidth > 260 || index === chars.length - 1) {
+                                // 如果超出行宽，回退一个字符
+                                if (measureContainer.offsetWidth > 260) {
+                                    currentLine = currentLine.slice(0, -1);
+                                    chars.splice(index, 0, char); // 将当前字符放回待处理队列
+                                }
+                                
+                                // 创建新的行
+                                const lineDiv = document.createElement('div');
+                                lineDiv.textContent = currentLine;
+                                lineDiv.style.marginBottom = '0.5em';
+                                
+                                // 测量行高
+                                measureContainer.innerHTML = '';
+                                measureContainer.appendChild(lineDiv);
+                                const lineHeight = measureContainer.offsetHeight;
+                                
+                                // 检查当前容器是否能放下这一行
+                                if (currentContainer.offsetHeight + lineHeight > 360) {
+                                    // 创建新容器
+                                    currentContainer = createContainer();
+                                }
+                                
+                                // 添加到当前容器
+                                currentContainer.appendChild(lineDiv.cloneNode(true));
+                                currentLine = '';
+                            }
+                        });
+                    } else {
+                        // 对于标题等其他元素，仍然作为整体处理
+                        const clonedNode = node.cloneNode(true);
+                        measureContainer.innerHTML = '';
+                        measureContainer.appendChild(clonedNode);
+                        const nodeHeight = measureContainer.offsetHeight;
+                        
+                        if (currentContainer.offsetHeight + nodeHeight > 360) {
+                            currentContainer = createContainer();
+                        }
+                        currentContainer.appendChild(clonedNode.cloneNode(true));
+                    }
+                }
+            });
+            
+            measureContainer.remove();
+        }
+
+        // 修改容器样式
+        function createContainer() {
+            const container = document.createElement('div');
+            container.className = 'container';
+            const contentWrapper = document.createElement('div');
+            contentWrapper.className = 'content-wrapper';
+            container.appendChild(contentWrapper);
+            document.body.appendChild(container);
+            return contentWrapper;
+        }
+
+        // 开始处理内容
+        processNodes(tempDiv.childNodes);
+        tempDiv.remove();
+    </script>
+</body>
+</html> 

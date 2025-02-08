@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Markdown分页渲染</title>
+    <style>
+        .editor-container {
+            margin: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        #markdown-input {
+            width: 600px;
+            height: 400px;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="editor-container">
+        <textarea id="markdown-input" placeholder="输入Markdown内容..."></textarea>
+        <button onclick="renderToNewWindow()">渲染</button>
+    </div>
+
+    <script>
+        function renderToNewWindow() {
+            const content = document.getElementById('markdown-input').value;
+            localStorage.setItem('markdownContent', content);
+            window.open('render.html', '_blank');
+        }
+    </script>
+</body>
+</html>
