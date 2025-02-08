@@ -11,8 +11,6 @@
             flex-wrap: wrap;
             gap: 20px;
             background: #f0f0f0;
-            width: calc(100% - 40px); /* 确保body宽度正确 */
-            min-height: 100vh;
         }
         .container {
             width: 300px;
@@ -20,87 +18,8 @@
             background: white;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             padding: 20px;
-            overflow: scroll;
+            overflow: hidden;
             box-sizing: border-box;
-            position: relative;
-            flex: 0 0 auto;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-        }
-        .content-wrapper {
-            position: relative;
-            width: 100%;
-            max-height: 360px;
-            overflow: scroll;
-        }
-        /* 添加基础样式确保内容正确显示 */
-        .content-wrapper > * {
-            margin-top: 0;
-            margin-bottom: 1em;
-        }
-        /* 所有级别的标题左对齐 */
-        .content-wrapper h1,
-        .content-wrapper h2,
-        .content-wrapper h3,
-        .content-wrapper h4,
-        .content-wrapper h5,
-        .content-wrapper h6 {
-            margin-left: 0;
-            padding-left: 0;
-        }
-        /* 所有级别的列表使用统一的缩进 */
-        .content-wrapper ul,
-        .content-wrapper ol {
-            margin-left: 0;
-            padding-left: 20px;
-        }
-        /* 嵌套列表的缩进 */
-        .content-wrapper ul ul,
-        .content-wrapper ol ol,
-        .content-wrapper ul ol,
-        .content-wrapper ol ul {
-            padding-left: 20px;
-        }
-        /* 第一级列表使用实心圆点 */
-        .content-wrapper > ul {
-            list-style-type: circle;
-        }
-        /* 第一级列表项下的直接子列表使用方块 */
-        /* .content-wrapper > ul > li {
-            list-style-type: disc;
-        } */
-        .content-wrapper > ul > li > ul {
-            list-style-type: square;
-        }
-        /* 第二级列表项下的直接子列表使用空心圆点 */
-        .content-wrapper > ul > li > ul > li {
-            list-style-type: disc;
-        }
-        .content-wrapper > ul > li > ul > li > ul {
-            list-style-type: circle;
-        }
-        /* 第三级列表项使用空心圆点 */
-        .content-wrapper > ul > li > ul > li > ul > li {
-            list-style-type: square;
-        }
-        /* 隐藏分割线 */
-        .content-wrapper hr {
-            display: none;
-        }
-        /* 有序列表样式 */
-        .content-wrapper > ol {
-            list-style-type: decimal;
-        }
-        .content-wrapper > ol > li > ol {
-            list-style-type: lower-alpha;
-        }
-        .content-wrapper > ol > li > ol > li > ol {
-            list-style-type: lower-roman;
-        }
-        /* 移除空列表项 */
-        .content-wrapper li:empty {
-            display: none;
         }
     </style>
 </head>
@@ -108,15 +27,6 @@
     <script>
         // 获取并解析Markdown内容
         const rawContent = localStorage.getItem('markdownContent') || '';
-        
-        // 配置marked选项
-        marked.setOptions({
-            gfm: true,
-            breaks: true,
-            headerIds: false
-        });
-
-        // 使用marked直接解析
         const htmlContent = marked.parse(rawContent);
         
         // 创建临时div用于内容分割
@@ -129,105 +39,31 @@
         // 创建分页容器
         let currentContainer = createContainer();
         let currentHeight = 0;
+        const maxHeight = 400 - 40; // 减去padding
 
         // 递归处理子节点
         function processNodes(nodes) {
-            const measureContainer = document.createElement('div');
-            measureContainer.style.width = '260px';
-            measureContainer.style.position = 'absolute';
-            measureContainer.style.visibility = 'hidden';
-            document.body.appendChild(measureContainer);
-            
             Array.from(nodes).forEach(node => {
                 if (node.nodeType === Node.ELEMENT_NODE) {
-                    if (node.tagName === 'P' || node.tagName === 'LI') {
-                        // 处理段落和列表项
-                        const lines = [];
-                        let currentLine = document.createElement('div');
-                        
-                        // 复制原始节点的子节点到临时容器
-                        Array.from(node.childNodes).forEach(childNode => {
-                            // 跳过空文本节点
-                            if (childNode.nodeType === Node.TEXT_NODE && !childNode.textContent.trim()) {
-                                return;
-                            }
-                            const clone = childNode.cloneNode(true);
-                            currentLine.appendChild(clone);
-                            
-                            measureContainer.innerHTML = '';
-                            measureContainer.appendChild(currentLine);
-                            
-                            // 如果超出宽度，创建新行
-                            if (measureContainer.offsetWidth > 260) {
-                                // 保存当前行
-                                if (currentLine.innerHTML.trim()) {  // 只保存非空行
-                                    const element = document.createElement(node.tagName);
-                                    element.innerHTML = currentLine.innerHTML;
-                                    lines.push(element);
-                                }
-                                // 创建新行
-                                currentLine = document.createElement('div');
-                                currentLine.appendChild(clone);
-                            }
-                        });
-                        
-                        // 添加最后一行
-                        if (currentLine.innerHTML.trim()) {  // 只保存非空行
-                            const element = document.createElement(node.tagName);
-                            element.innerHTML = currentLine.innerHTML;
-                            lines.push(element);
-                        }
-                        
-                        // 添加行到容器
-                        lines.forEach(line => {
-                            // 跳过空行
-                            if (!line.innerHTML.trim()) {
-                                return;
-                            }
-                            measureContainer.innerHTML = '';
-                            measureContainer.appendChild(line);
-                            const lineHeight = measureContainer.offsetHeight;
-                            
-                            if (currentContainer.offsetHeight + lineHeight > 360) {
-                                currentContainer = createContainer();
-                            }
-                            
-                            currentContainer.appendChild(line.cloneNode(true));
-                        });
-                    } else if (node.tagName === 'UL' || node.tagName === 'OL') {
-                        // 为列表创建新容器
-                        const list = document.createElement(node.tagName);
-                        list.className = node.className; // 保持原有类名
-                        currentContainer.appendChild(list);
-                        // 递归处理列表项
-                        processNodes(node.childNodes);
-                    } else {
-                        // 标题等其他元素整体处理
-                        const clonedNode = node.cloneNode(true);
-                        measureContainer.innerHTML = '';
-                        measureContainer.appendChild(clonedNode);
-                        const nodeHeight = measureContainer.offsetHeight;
-                        
-                        if (currentContainer.offsetHeight + nodeHeight > 360) {
-                            currentContainer = createContainer();
-                        }
-                        currentContainer.appendChild(clonedNode.cloneNode(true));
+                    const nodeHeight = node.getBoundingClientRect().height;
+                    
+                    if (currentHeight + nodeHeight > maxHeight) {
+                        currentContainer = createContainer();
+                        currentHeight = 0;
                     }
+                    
+                    currentContainer.appendChild(node.cloneNode(true));
+                    currentHeight += nodeHeight;
                 }
             });
-            
-            measureContainer.remove();
         }
 
-        // 修改容器样式
+        // 创建新容器函数
         function createContainer() {
             const container = document.createElement('div');
             container.className = 'container';
-            const contentWrapper = document.createElement('div');
-            contentWrapper.className = 'content-wrapper';
-            container.appendChild(contentWrapper);
             document.body.appendChild(container);
-            return contentWrapper;
+            return container;
         }
 
         // 开始处理内容
