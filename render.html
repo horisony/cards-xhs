@@ -62,12 +62,61 @@
         .content-wrapper ol ul {
             padding-left: 20px;
         }
+        /* 第一级列表使用实心圆点 */
+        .content-wrapper > ul {
+            list-style-type: circle;
+        }
+        /* 第一级列表项下的直接子列表使用方块 */
+        /* .content-wrapper > ul > li {
+            list-style-type: disc;
+        } */
+        .content-wrapper > ul > li > ul {
+            list-style-type: square;
+        }
+        /* 第二级列表项下的直接子列表使用空心圆点 */
+        .content-wrapper > ul > li > ul > li {
+            list-style-type: disc;
+        }
+        .content-wrapper > ul > li > ul > li > ul {
+            list-style-type: circle;
+        }
+        /* 第三级列表项使用空心圆点 */
+        .content-wrapper > ul > li > ul > li > ul > li {
+            list-style-type: square;
+        }
+        /* 隐藏分割线 */
+        .content-wrapper hr {
+            display: none;
+        }
+        /* 有序列表样式 */
+        .content-wrapper > ol {
+            list-style-type: decimal;
+        }
+        .content-wrapper > ol > li > ol {
+            list-style-type: lower-alpha;
+        }
+        .content-wrapper > ol > li > ol > li > ol {
+            list-style-type: lower-roman;
+        }
+        /* 移除空列表项 */
+        .content-wrapper li:empty {
+            display: none;
+        }
     </style>
 </head>
 <body>
     <script>
         // 获取并解析Markdown内容
         const rawContent = localStorage.getItem('markdownContent') || '';
+        
+        // 配置marked选项
+        marked.setOptions({
+            gfm: true,
+            breaks: true,
+            headerIds: false
+        });
+
+        // 使用marked直接解析
         const htmlContent = marked.parse(rawContent);
         
         // 创建临时div用于内容分割
@@ -91,56 +140,69 @@
             
             Array.from(nodes).forEach(node => {
                 if (node.nodeType === Node.ELEMENT_NODE) {
-                    if (node.tagName === 'P') {
-                        // 创建新段落元素
-                        let paragraph = document.createElement('p');
-                        // 获取段落中的所有文本
-                        const text = node.textContent;
-                        // 按字符分割
-                        const chars = text.split('');
-                        let currentLine = '';
+                    if (node.tagName === 'P' || node.tagName === 'LI') {
+                        // 处理段落和列表项
+                        const lines = [];
+                        let currentLine = document.createElement('div');
                         
-                        // 逐字处理
-                        chars.forEach((char, index) => {
-                            currentLine += char;
+                        // 复制原始节点的子节点到临时容器
+                        Array.from(node.childNodes).forEach(childNode => {
+                            // 跳过空文本节点
+                            if (childNode.nodeType === Node.TEXT_NODE && !childNode.textContent.trim()) {
+                                return;
+                            }
+                            const clone = childNode.cloneNode(true);
+                            currentLine.appendChild(clone);
                             
-                            // 创建临时span测量当前行
-                            const tempSpan = document.createElement('span');
-                            tempSpan.textContent = currentLine;
                             measureContainer.innerHTML = '';
-                            measureContainer.appendChild(tempSpan);
+                            measureContainer.appendChild(currentLine);
                             
-                            // 如果达到行宽或是最后一个字符
-                            if (measureContainer.offsetWidth > 260 || index === chars.length - 1) {
-                                // 如果超出行宽，回退一个字符
-                                if (measureContainer.offsetWidth > 260) {
-                                    currentLine = currentLine.slice(0, -1);
-                                    chars.splice(index, 0, char); // 将当前字符放回待处理队列
+                            // 如果超出宽度，创建新行
+                            if (measureContainer.offsetWidth > 260) {
+                                // 保存当前行
+                                if (currentLine.innerHTML.trim()) {  // 只保存非空行
+                                    const element = document.createElement(node.tagName);
+                                    element.innerHTML = currentLine.innerHTML;
+                                    lines.push(element);
                                 }
-                                
-                                // 创建新的行
-                                const lineDiv = document.createElement('div');
-                                lineDiv.textContent = currentLine;
-                                lineDiv.style.marginBottom = '0.5em';
-                                
-                                // 测量行高
-                                measureContainer.innerHTML = '';
-                                measureContainer.appendChild(lineDiv);
-                                const lineHeight = measureContainer.offsetHeight;
-                                
-                                // 检查当前容器是否能放下这一行
-                                if (currentContainer.offsetHeight + lineHeight > 360) {
-                                    // 创建新容器
-                                    currentContainer = createContainer();
-                                }
-                                
-                                // 添加到当前容器
-                                currentContainer.appendChild(lineDiv.cloneNode(true));
-                                currentLine = '';
+                                // 创建新行
+                                currentLine = document.createElement('div');
+                                currentLine.appendChild(clone);
                             }
                         });
+                        
+                        // 添加最后一行
+                        if (currentLine.innerHTML.trim()) {  // 只保存非空行
+                            const element = document.createElement(node.tagName);
+                            element.innerHTML = currentLine.innerHTML;
+                            lines.push(element);
+                        }
+                        
+                        // 添加行到容器
+                        lines.forEach(line => {
+                            // 跳过空行
+                            if (!line.innerHTML.trim()) {
+                                return;
+                            }
+                            measureContainer.innerHTML = '';
+                            measureContainer.appendChild(line);
+                            const lineHeight = measureContainer.offsetHeight;
+                            
+                            if (currentContainer.offsetHeight + lineHeight > 360) {
+                                currentContainer = createContainer();
+                            }
+                            
+                            currentContainer.appendChild(line.cloneNode(true));
+                        });
+                    } else if (node.tagName === 'UL' || node.tagName === 'OL') {
+                        // 为列表创建新容器
+                        const list = document.createElement(node.tagName);
+                        list.className = node.className; // 保持原有类名
+                        currentContainer.appendChild(list);
+                        // 递归处理列表项
+                        processNodes(node.childNodes);
                     } else {
-                        // 对于标题等其他元素，仍然作为整体处理
+                        // 标题等其他元素整体处理
                         const clonedNode = node.cloneNode(true);
                         measureContainer.innerHTML = '';
                         measureContainer.appendChild(clonedNode);
